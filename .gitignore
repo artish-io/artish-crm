@@ -1,0 +1,10 @@
+node_modules
+.next
+.env
+.env.local
+.env.*.local
+# local-dev data (contacts + uploaded transcripts); never commit
+.data
+.vercel
+next-env.d.ts
+*.tsbuildinfo
