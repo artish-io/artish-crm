@@ -13,15 +13,37 @@
   --ok: #16a34a;
   --warn: #d97706;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0f1115;
-    --card: #181b21;
-    --text: #e8eaee;
-    --muted: #9aa1ad;
-    --border: #2a2f38;
-    --accent: #818cf8;
-  }
+/* Theme: layout.tsx's inline script sets data-theme="light|dark" on <html> (from the saved choice, else the OS). */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0f1115;
+  --card: #181b21;
+  --text: #e8eaee;
+  --muted: #9aa1ad;
+  --border: #2a2f38;
+  --accent: #818cf8;
+
+  /* The analytics pages use Tailwind's fixed colors; remap them so they follow the theme. */
+  --color-white: #181b21;
+  --color-black: #e8eaee;
+  --color-gray-50: #0f1115;
+  --color-gray-100: #1c2027;
+  --color-gray-200: #2a2f38;
+  --color-gray-300: #4b5563;
+  --color-gray-400: #6b7280;
+  --color-gray-500: #9aa1ad;
+  --color-gray-600: #b4bac4;
+  --color-gray-700: #cbd0d8;
+  --color-gray-800: #e1e4e9;
+  --color-gray-900: #f3f4f6;
+  --color-gray-950: #fafafa;
+  --color-red-50: #3b1219;
+  --color-red-200: #7f1d1d;
+  --color-red-700: #fca5a5;
+  --color-green-100: #14532d;
+  --color-green-800: #bbf7d0;
+  --color-amber-100: #451a03;
+  --color-amber-800: #fde68a;
 }
 * { box-sizing: border-box; }
 body {

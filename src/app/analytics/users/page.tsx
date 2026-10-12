@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import ThemeToggle from '@/components/ThemeToggle';
 import { LogOut } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLogout } from '@/components/useLogout';
@@ -77,15 +78,23 @@ export default function UserActivityPage() {
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <Link href="/analytics" className="text-sm text-gray-500 hover:text-gray-900">
-              ← Signups & retention
-            </Link>
+            <div className="flex gap-3 text-sm text-gray-500">
+              <Link href="/" className="hover:text-gray-900">
+                ← CRM
+              </Link>
+              <Link href="/analytics" className="hover:text-gray-900">
+                Signups & retention
+              </Link>
+            </div>
             <h1 className="text-2xl font-bold text-gray-900">User activity</h1>
             <p className="text-sm text-gray-500">When each user last signed in and what they did.</p>
           </div>
-          <button onClick={logout} className="rounded-lg border border-gray-200 bg-white p-2 text-gray-600 hover:bg-gray-100" aria-label="Log out">
-            <LogOut className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 hover:bg-gray-100" />
+            <button onClick={logout} className="rounded-lg border border-gray-200 bg-white p-2 text-gray-600 hover:bg-gray-100" aria-label="Log out">
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {error && <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}

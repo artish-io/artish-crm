@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CHECKLIST, MQL_STAGES, SQL_STAGES, type Pipeline, type PublicContact } from '@/lib/types';
 import ContactPanel from './ContactPanel';
+import ThemeToggle from './ThemeToggle';
 
 const rel = (iso: string | null | undefined) => {
   if (!iso) return '—';
@@ -95,6 +96,7 @@ export default function Board() {
         <button className="primary" onClick={() => setAdding(true)}>
           Add contact
         </button>
+        <ThemeToggle />
         <button onClick={logout}>Log out</button>
       </div>
 

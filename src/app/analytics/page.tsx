@@ -13,6 +13,7 @@ import {
   YAxis,
 } from 'recharts';
 import Link from 'next/link';
+import ThemeToggle from '@/components/ThemeToggle';
 import { LogOut } from 'lucide-react';
 import { useLogout } from '@/components/useLogout';
 import type {
@@ -333,6 +334,9 @@ export default function AnalyticsPage() {
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
+            <Link href="/" className="text-sm text-gray-500 hover:text-gray-900">
+              ← CRM
+            </Link>
             <h1 className="text-2xl font-bold text-gray-900">Conversion & retention</h1>
             <p className="text-sm text-gray-500">Signups, what users did next, and who came back.</p>
             <Link href="/analytics/users" className="text-sm text-gray-500 underline hover:text-gray-900">
@@ -351,6 +355,7 @@ export default function AnalyticsPage() {
                 </button>
               ))}
             </div>
+            <ThemeToggle className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 hover:bg-gray-100" />
             <button onClick={logout} className="rounded-lg border border-gray-200 bg-white p-2 text-gray-600 hover:bg-gray-100" aria-label="Log out">
               <LogOut className="h-4 w-4" />
             </button>
@@ -385,9 +390,9 @@ export default function AnalyticsPage() {
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="day" tick={{ fontSize: 11 }} minTickGap={24} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                    <Tooltip />
+                    <Tooltip contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text)' }} />
                     <Legend />
-                    <Bar dataKey="talent" name="Talent" stackId="a" fill="#111827" />
+                    <Bar dataKey="talent" name="Talent" stackId="a" fill="var(--color-gray-900)" />
                     <Bar dataKey="manager" name="Manager" stackId="a" fill="#16a34a" />
                   </BarChart>
                 </ResponsiveContainer>
