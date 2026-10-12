@@ -13,3 +13,15 @@ export async function guard(request: Request): Promise<NextResponse | null> {
 export function toPublic(c: Contact): PublicContact {
   return { ...c, transcripts: c.transcripts.map(({ pathname: _pathname, ...t }) => t) };
 }
+
+/** Wraps a route handler so unexpected errors are logged and returned as JSON instead of a bare 500. */
+export function safe<A extends unknown[]>(handler: (request: Request, ...args: A) => Promise<Response>) {
+  return async (request: Request, ...args: A): Promise<Response> => {
+    try {
+      return await handler(request, ...args);
+    } catch (e) {
+      console.error(`${request.method} ${new URL(request.url).pathname} failed:`, e);
+      return json({ error: e instanceof Error ? `${e.name}: ${e.message}` : 'Unexpected error' }, 500);
+    }
+  };
+}

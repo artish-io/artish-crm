@@ -1,11 +1,11 @@
 import { randomUUID } from 'crypto';
-import { guard, json, toPublic } from '@/lib/api';
+import { guard, json, safe, toPublic } from '@/lib/api';
 import { load, mutate } from '@/lib/store';
 import type { Contact, Pipeline } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request) {
+async function getHandler(request: Request) {
   const denied = await guard(request);
   if (denied) return denied;
   const data = await load();
@@ -13,7 +13,7 @@ export async function GET(request: Request) {
 }
 
 /** Add a contact by hand (typically a sales lead who may not have an account). */
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   const denied = await guard(request);
   if (denied) return denied;
 
@@ -49,3 +49,7 @@ export async function POST(request: Request) {
   if (!created) return json({ error: 'A contact with that email already exists' }, 409);
   return json(toPublic(created), 201);
 }
+
+export const GET = safe(getHandler);
+
+export const POST = safe(postHandler);

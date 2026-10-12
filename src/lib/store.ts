@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { createHash } from 'crypto';
-import { get, put, BlobPreconditionFailedError } from '@vercel/blob';
+import { get, head, put, BlobNotFoundError, BlobPreconditionFailedError } from '@vercel/blob';
 import type { Data } from './types';
 
 /**
@@ -21,9 +21,19 @@ class ConflictError extends Error {}
 
 async function read(): Promise<{ data: Data; etag: string | null }> {
   if (usingBlob()) {
+    // The ETag must come from head() (the Blob API's own value, which put's ifMatch compares against).
+    // The HTTP etag header on a read can be a different representation and never matches.
+    // Reading the ETag first is safe: if the blob changes before we write, the write fails and we retry.
+    let etag: string;
+    try {
+      etag = (await head(BLOB_PATH)).etag;
+    } catch (e) {
+      if (e instanceof BlobNotFoundError) return { data: empty(), etag: null };
+      throw e;
+    }
     const res = await get(BLOB_PATH, { access: 'private', useCache: false });
-    if (!res || res.statusCode !== 200 || !res.stream) return { data: empty(), etag: null };
-    return { data: JSON.parse(await new Response(res.stream).text()), etag: res.blob.etag };
+    if (!res || res.statusCode !== 200 || !res.stream) throw new Error('Data blob disappeared while reading');
+    return { data: JSON.parse(await new Response(res.stream).text()), etag };
   }
   try {
     const text = await fs.readFile(FILE_PATH, 'utf8');
@@ -46,6 +56,7 @@ async function write(data: Data, etag: string | null): Promise<void> {
       });
     } catch (e) {
       if (e instanceof BlobPreconditionFailedError) throw new ConflictError();
+      console.error('Blob write failed:', e);
       throw e;
     }
     return;
@@ -73,5 +84,5 @@ export async function mutate<T>(fn: (data: Data) => T | Promise<T>): Promise<T> 
       throw e;
     }
   }
-  throw new Error('Could not save after several attempts, please try again');
+  throw new Error('Could not save: the stored data kept changing (ETag mismatch on every attempt)');
 }

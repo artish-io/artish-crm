@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { guard, json, toPublic } from '@/lib/api';
+import { guard, json, safe, toPublic } from '@/lib/api';
 import { MAX_UPLOAD_BYTES, deleteTranscript, saveTranscript } from '@/lib/files';
 import { load, mutate } from '@/lib/store';
 import type { Transcript } from '@/lib/types';
@@ -7,7 +7,7 @@ import type { Transcript } from '@/lib/types';
 type Ctx = { params: Promise<{ id: string }> };
 
 /** Add a transcript: multipart `file` upload, or JSON `{ link, name }` for a Fathom/Otter/Zoom URL. */
-export async function POST(request: Request, { params }: Ctx) {
+async function postHandler(request: Request, { params }: Ctx) {
   const denied = await guard(request);
   if (denied) return denied;
   const { id } = await params;
@@ -54,7 +54,7 @@ export async function POST(request: Request, { params }: Ctx) {
   return json(toPublic(updated), 201);
 }
 
-export async function DELETE(request: Request, { params }: Ctx) {
+async function deleteHandler(request: Request, { params }: Ctx) {
   const denied = await guard(request);
   if (denied) return denied;
   const { id } = await params;
@@ -73,3 +73,7 @@ export async function DELETE(request: Request, { params }: Ctx) {
   if (result.pathname) await deleteTranscript(result.pathname);
   return json(toPublic(result.contact));
 }
+
+export const POST = safe(postHandler);
+
+export const DELETE = safe(deleteHandler);

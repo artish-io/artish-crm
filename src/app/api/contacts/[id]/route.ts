@@ -1,11 +1,11 @@
-import { guard, json, toPublic } from '@/lib/api';
+import { guard, json, safe, toPublic } from '@/lib/api';
 import { deleteTranscript } from '@/lib/files';
 import { mutate } from '@/lib/store';
 import { stagesFor, type Pipeline } from '@/lib/types';
 
 type Ctx = { params: Promise<{ id: string }> };
 
-export async function PATCH(request: Request, { params }: Ctx) {
+async function patchHandler(request: Request, { params }: Ctx) {
   const denied = await guard(request);
   if (denied) return denied;
   const { id } = await params;
@@ -48,7 +48,7 @@ export async function PATCH(request: Request, { params }: Ctx) {
 }
 
 /** Only hand-added contacts can be deleted; synced ones are archived so a sync does not recreate them. */
-export async function DELETE(request: Request, { params }: Ctx) {
+async function deleteHandler(request: Request, { params }: Ctx) {
   const denied = await guard(request);
   if (denied) return denied;
   const { id } = await params;
@@ -66,3 +66,7 @@ export async function DELETE(request: Request, { params }: Ctx) {
   await Promise.all(result.files.map(deleteTranscript));
   return json({ ok: true });
 }
+
+export const PATCH = safe(patchHandler);
+
+export const DELETE = safe(deleteHandler);
