@@ -88,3 +88,53 @@ export interface Data {
 export type PublicContact = Omit<Contact, 'transcripts'> & {
   transcripts: Omit<Transcript, 'pathname'>[];
 };
+
+/** Plain-text template; {{firstName}}, {{name}}, {{email}}, {{company}} are filled in per contact. */
+export interface EmailTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type Trigger = 'days_after_account_created' | 'days_after_lead_no_account';
+
+export const TRIGGERS: { id: Trigger; label: string }[] = [
+  { id: 'days_after_account_created', label: 'days after the account was created' },
+  { id: 'days_after_lead_no_account', label: 'days after Google sign-in with no account' },
+];
+
+export type RuleMode = 'off' | 'dry_run' | 'live';
+
+export interface EmailRule {
+  id: string;
+  name: string;
+  templateId: string;
+  trigger: Trigger;
+  /** Send once a contact is at least this many days past the trigger... */
+  days: number;
+  /** ...and no more than this many days later, so enabling a rule never emails old contacts. */
+  windowDays: number;
+  /** Only for the account trigger. null = any. */
+  userType: 'talent' | 'manager' | null;
+  /** Skip contacts who have already done ANY of these checklist steps. */
+  skipIfSteps: string[];
+  enabled: boolean;
+  live: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmailSend {
+  id: string;
+  ruleId: string;
+  contactId: string;
+  toEmail: string;
+  subject: string;
+  status: 'dry_run' | 'pending' | 'sent' | 'failed';
+  error: string | null;
+  resendId: string | null;
+  createdAt: string;
+}

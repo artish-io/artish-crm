@@ -88,6 +88,7 @@ export default function Board() {
           </button>
         </div>
         <a href="/analytics">Analytics</a>
+        <a href="/automation">Automation</a>
         <span className="spacer" />
         <span className="muted">{lastSyncAt ? `Synced ${rel(lastSyncAt)}` : 'Never synced'}</span>
         <button onClick={sync} disabled={syncing}>

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { COOKIE, verifySessionToken } from '@/lib/auth';
 
-const PUBLIC_PATHS = ['/login', '/api/login'];
+// /api/cron/automation checks its own CRON_SECRET; unsubscribe links are signed.
+const PUBLIC_PATHS = ['/login', '/api/login', '/unsubscribe', '/api/unsubscribe', '/api/cron/automation'];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

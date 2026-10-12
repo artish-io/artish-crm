@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { Pool } from 'pg';
-import { importLegacyBlob } from './legacy-import';
+import { seedEmailDefaults } from './email-seed';
 
 /**
  * The CRM's own Postgres (Neon, via DATABASE_URL). This is separate from the
@@ -16,7 +16,6 @@ export type Query = (text: string, params?: unknown[]) => Promise<{ rows: any[] 
 
 interface Driver {
   query: Query;
-  exec(text: string): Promise<void>;
   tx<T>(fn: (q: Query) => Promise<T>): Promise<T>;
 }
 
@@ -42,6 +41,46 @@ CREATE TABLE IF NOT EXISTS meta (
   key   text PRIMARY KEY,
   value jsonb NOT NULL
 );
+CREATE TABLE IF NOT EXISTS email_templates (
+  id         text PRIMARY KEY,
+  name       text NOT NULL,
+  subject    text NOT NULL,
+  body       text NOT NULL,
+  created_at timestamptz NOT NULL,
+  updated_at timestamptz NOT NULL
+);
+CREATE TABLE IF NOT EXISTS email_rules (
+  id            text PRIMARY KEY,
+  name          text NOT NULL,
+  template_id   text NOT NULL,
+  trigger_type  text NOT NULL,
+  days          int NOT NULL,
+  window_days   int NOT NULL DEFAULT 3,
+  user_type     text,
+  skip_if_steps jsonb NOT NULL DEFAULT '[]',
+  enabled       boolean NOT NULL DEFAULT false,
+  live          boolean NOT NULL DEFAULT false,
+  created_at    timestamptz NOT NULL,
+  updated_at    timestamptz NOT NULL
+);
+CREATE TABLE IF NOT EXISTS email_sends (
+  id         text PRIMARY KEY,
+  rule_id    text NOT NULL,
+  contact_id text NOT NULL,
+  to_email   text NOT NULL,
+  subject    text NOT NULL,
+  status     text NOT NULL,
+  error      text,
+  resend_id  text,
+  created_at timestamptz NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS email_sends_once ON email_sends (rule_id, contact_id) WHERE status <> 'dry_run';
+CREATE INDEX IF NOT EXISTS email_sends_created ON email_sends (created_at DESC);
+CREATE TABLE IF NOT EXISTS email_suppressions (
+  email      text PRIMARY KEY,
+  reason     text NOT NULL,
+  created_at timestamptz NOT NULL
+);
 `;
 
 const SCHEMA_LOCK = 727301;
@@ -57,7 +96,6 @@ async function createDriver(): Promise<Driver> {
     });
     return {
       query: (text, params) => pool.query(text, params as any[]),
-      exec: async (text) => void (await pool.query(text)),
       async tx(fn) {
         const client = await pool.connect();
         try {
@@ -83,21 +121,20 @@ async function createDriver(): Promise<Driver> {
   const db = new PGlite(dir);
   return {
     query: (text, params) => db.query(text, params as any[]),
-    exec: async (text) => void (await db.exec(text)),
     tx: (fn) => db.transaction((t) => fn((text, params) => t.query(text, params as any[]))),
   };
 }
 
 let ready: Promise<Driver> | null = null;
 
-/** Creates the schema on first use and runs the one-time Blob import. Retried if it fails. */
+/** Creates the schema on first use. Retried if it fails. */
 function driver(): Promise<Driver> {
   ready ??= (async () => {
     const d = await createDriver();
     await d.tx(async (q) => {
       await q('SELECT pg_advisory_xact_lock($1)', [SCHEMA_LOCK]); // serialize concurrent cold starts
       for (const stmt of SCHEMA.split(';').map((s) => s.trim()).filter(Boolean)) await q(stmt);
-      await importLegacyBlob(q);
+      await seedEmailDefaults(q);
     });
     return d;
   })().catch((e) => {
