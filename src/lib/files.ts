@@ -1,7 +1,8 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { del, get, put } from '@vercel/blob';
-import { usingBlob } from './store';
+
+const usingBlob = () => !!(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID);
 
 /** Transcript file storage: private Blob in production, ./.data/uploads in local dev. */
 const LOCAL_DIR = path.join(process.cwd(), '.data', 'uploads');

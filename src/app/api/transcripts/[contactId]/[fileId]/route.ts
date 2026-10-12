@@ -1,6 +1,6 @@
 import { guard, json } from '@/lib/api';
 import { openTranscript } from '@/lib/files';
-import { load } from '@/lib/store';
+import { getContact } from '@/lib/repo';
 
 type Ctx = { params: Promise<{ contactId: string; fileId: string }> };
 
@@ -10,7 +10,7 @@ export async function GET(request: Request, { params }: Ctx) {
   if (denied) return denied;
   const { contactId, fileId } = await params;
 
-  const contact = (await load()).contacts.find((c) => c.id === contactId);
+  const contact = await getContact(contactId);
   const transcript = contact?.transcripts.find((t) => t.id === fileId);
   if (!transcript?.pathname) return json({ error: 'Not found' }, 404);
 

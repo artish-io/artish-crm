@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { getConversionMetrics } from './analytics/conversion-metrics';
 import { getUserActivity } from './analytics/user-activity';
+import { listContacts, saveSynced } from './repo';
 import type { Contact, Data, ProductInfo } from './types';
 
 /**
@@ -40,6 +41,7 @@ export function mergeMainAppData(data: Data, main: { users: MainUser[]; leads: M
   const now = new Date().toISOString();
   let created = 0;
   let updated = 0;
+  const touched = new Set<Contact>();
 
   const blank = (email: string, name: string): Contact => ({
     id: randomUUID(),
@@ -83,6 +85,7 @@ export function mergeMainAppData(data: Data, main: { users: MainUser[]; leads: M
     // MQL stage is derived from the product data; SQL stages are hand-managed.
     if (c.pipeline === 'mql') c.stage = 'created_account';
     c.updatedAt = now;
+    touched.add(c);
   }
 
   for (const l of main.leads) {
@@ -92,8 +95,17 @@ export function mergeMainAppData(data: Data, main: { users: MainUser[]; leads: M
     data.contacts.push(c);
     byEmail.set(key(l.email), c);
     created++;
+    touched.add(c);
   }
 
   data.lastSyncAt = now;
-  return { created, updated, total: data.contacts.length };
+  return { created, updated, total: data.contacts.length, touched: [...touched] };
+}
+
+/** Merges main-app data into the stored contacts and saves only what changed. */
+export async function syncFromMainApp(main: { users: MainUser[]; leads: MainLead[] }) {
+  const data: Data = { version: 1, contacts: await listContacts(), lastSyncAt: null };
+  const { touched, ...summary } = mergeMainAppData(data, main);
+  await saveSynced(touched, data.lastSyncAt!);
+  return summary;
 }

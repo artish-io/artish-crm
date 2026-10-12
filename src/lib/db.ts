@@ -10,7 +10,7 @@ import { Pool, type PoolConfig } from 'pg';
  * authorized-network entry or public-IP allowlist is needed.
  *   CLOUD_SQL_INSTANCE=project:region:instance, DB_USER, DB_PASSWORD, DB_NAME,
  *   GCP_SERVICE_ACCOUNT_KEY=<service account JSON>
- * Local dev: set DATABASE_URL instead (e.g. through an allowlisted IP).
+ * Local dev: set MAIN_DATABASE_URL instead (DATABASE_URL is the CRM's own Neon database, see sql.ts) (e.g. through an allowlisted IP).
  *
  * Connect as a role that only has SELECT; the dashboard never writes.
  */
@@ -37,8 +37,8 @@ async function poolConfig(): Promise<PoolConfig> {
     });
     return { ...opts, user: DB_USER, password: DB_PASSWORD, database: DB_NAME, max: 3 };
   }
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new Error('Set CLOUD_SQL_INSTANCE (production) or DATABASE_URL (local) to read analytics');
+  const url = process.env.MAIN_DATABASE_URL;
+  if (!url) throw new Error('Set CLOUD_SQL_INSTANCE (production) or MAIN_DATABASE_URL (local) to read analytics');
   return { connectionString: url, ssl: /localhost|127\.0\.0\.1/.test(url) ? false : { rejectUnauthorized: false }, max: 3 };
 }
 

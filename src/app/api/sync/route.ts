@@ -1,6 +1,5 @@
 import { guard, json } from '@/lib/api';
-import { mutate } from '@/lib/store';
-import { fetchMainAppData, mergeMainAppData } from '@/lib/sync';
+import { fetchMainAppData, syncFromMainApp } from '@/lib/sync';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,9 +9,7 @@ export async function POST(request: Request) {
   if (denied) return denied;
 
   try {
-    const main = await fetchMainAppData();
-    const summary = await mutate((data) => mergeMainAppData(data, main));
-    return json(summary);
+    return json(await syncFromMainApp(await fetchMainAppData()));
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : 'Sync failed' }, 502);
   }

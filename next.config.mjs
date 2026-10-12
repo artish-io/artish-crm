@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Embedded Postgres used only in local dev (see src/lib/sql.ts); never bundled.
+  serverExternalPackages: ['@electric-sql/pglite'],
   async headers() {
     return [
       {

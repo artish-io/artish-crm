@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { guard, json, safe, toPublic } from '@/lib/api';
-import { load, mutate } from '@/lib/store';
+import { insertContact, lastSyncAt, listContacts } from '@/lib/repo';
+import { isDuplicate } from '@/lib/sql';
 import type { Contact, Pipeline } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -8,8 +9,8 @@ export const dynamic = 'force-dynamic';
 async function getHandler(request: Request) {
   const denied = await guard(request);
   if (denied) return denied;
-  const data = await load();
-  return json({ contacts: data.contacts.map(toPublic), lastSyncAt: data.lastSyncAt });
+  const [contacts, synced] = await Promise.all([listContacts(), lastSyncAt()]);
+  return json({ contacts: contacts.map(toPublic), lastSyncAt: synced });
 }
 
 /** Add a contact by hand (typically a sales lead who may not have an account). */
@@ -41,15 +42,14 @@ async function postHandler(request: Request) {
     updatedAt: now,
   };
 
-  const created = await mutate((data) => {
-    if (email && data.contacts.some((c) => c.email === email)) return null;
-    data.contacts.push(contact);
-    return contact;
-  });
-  if (!created) return json({ error: 'A contact with that email already exists' }, 409);
-  return json(toPublic(created), 201);
+  try {
+    await insertContact(contact);
+  } catch (e) {
+    if (isDuplicate(e)) return json({ error: 'A contact with that email already exists' }, 409);
+    throw e;
+  }
+  return json(toPublic(contact), 201);
 }
 
 export const GET = safe(getHandler);
-
 export const POST = safe(postHandler);

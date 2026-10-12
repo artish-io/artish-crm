@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { guard, json, safe, toPublic } from '@/lib/api';
 import { MAX_UPLOAD_BYTES, deleteTranscript, saveTranscript } from '@/lib/files';
-import { load, mutate } from '@/lib/store';
+import { getContact, updateContact } from '@/lib/repo';
 import type { Transcript } from '@/lib/types';
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -12,7 +12,7 @@ async function postHandler(request: Request, { params }: Ctx) {
   if (denied) return denied;
   const { id } = await params;
 
-  const existing = (await load()).contacts.find((c) => c.id === id);
+  const existing = await getContact(id);
   if (!existing) return json({ error: 'Not found' }, 404);
 
   const transcript: Transcript = { id: randomUUID(), name: '', kind: 'file', uploadedAt: new Date().toISOString() };
@@ -40,18 +40,15 @@ async function postHandler(request: Request, { params }: Ctx) {
     transcript.name = String(body.name ?? '').trim() || url.hostname;
   }
 
-  const updated = await mutate((data) => {
-    const c = data.contacts.find((x) => x.id === id);
-    if (!c) return null;
+  const updated = await updateContact(id, (c) => {
     c.transcripts.push(transcript);
     c.updatedAt = new Date().toISOString();
-    return c;
   });
   if (!updated) {
     if (transcript.pathname) await deleteTranscript(transcript.pathname);
     return json({ error: 'Not found' }, 404);
   }
-  return json(toPublic(updated), 201);
+  return json(toPublic(updated.contact), 201);
 }
 
 async function deleteHandler(request: Request, { params }: Ctx) {
@@ -61,16 +58,15 @@ async function deleteHandler(request: Request, { params }: Ctx) {
   const fileId = new URL(request.url).searchParams.get('fileId');
   if (!fileId) return json({ error: 'fileId is required' }, 400);
 
-  const result = await mutate((data) => {
-    const c = data.contacts.find((x) => x.id === id);
-    const idx = c ? c.transcripts.findIndex((t) => t.id === fileId) : -1;
-    if (!c || idx === -1) return null;
+  const result = await updateContact(id, (c) => {
+    const idx = c.transcripts.findIndex((t) => t.id === fileId);
+    if (idx === -1) return null;
     const [removed] = c.transcripts.splice(idx, 1);
     c.updatedAt = new Date().toISOString();
-    return { contact: c, pathname: removed.pathname };
+    return removed.pathname ?? '';
   });
-  if (!result) return json({ error: 'Not found' }, 404);
-  if (result.pathname) await deleteTranscript(result.pathname);
+  if (!result || result.result === null) return json({ error: 'Not found' }, 404);
+  if (result.result) await deleteTranscript(result.result);
   return json(toPublic(result.contact));
 }
 
