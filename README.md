@@ -5,7 +5,8 @@ Internal sales-funnel tracker, separate from the main Artish app.
 - **SQL** pipeline (kanban): Initial discovery → Post-demo → Close → Sustained
 - **MQL** pipeline: Signed up (no account) → Created account, with a per-contact feature checklist
 - Per-contact notes and meeting transcripts (file upload ≤ 4 MB, or a link)
-- **Sync from app** pulls signups, leads and feature usage from the main app's admin analytics API
+- **Analytics** (`/analytics`, `/analytics/users`): signups, activation, retention, leads, per-user last sign-in, read straight from the main Artish database
+- **Sync from database** turns signups, leads and feature usage into contacts
 
 Single shared password, no per-user accounts. Data is one JSON blob in Vercel Blob.
 
@@ -23,9 +24,12 @@ Without `BLOB_READ_WRITE_TOKEN`, data goes to `./.data/` (git-ignored).
 
 1. Create a **private** Blob store and connect it to the project (this sets `BLOB_READ_WRITE_TOKEN`).
    Transcripts contain customer conversations, so do not use a public store.
-2. Set env vars: `CRM_PASSWORD`, `SESSION_SECRET` (random, 32+ chars), `MAIN_APP_URL`,
-   `MAIN_APP_ADMIN_PASSWORD` (the main app's `ADMIN_DASHBOARD_PASSWORD`).
-3. Deploy. The app refuses logins until `CRM_PASSWORD` and `SESSION_SECRET` are set.
+2. Set `CRM_PASSWORD` and `SESSION_SECRET` (random, 32+ chars).
+3. Database access (read-only), set `CLOUD_SQL_INSTANCE`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `GCP_SERVICE_ACCOUNT_KEY`:
+   - Create a Postgres role with `SELECT` only on the tables the dashboard reads.
+   - Create a GCP service account with the **Cloud SQL Client** role and put its JSON key in `GCP_SERVICE_ACCOUNT_KEY`.
+   - Cloud SQL connector tunnels over TLS with IAM authorization, so no authorized-network entry is needed.
+4. Deploy. The app refuses logins until `CRM_PASSWORD` and `SESSION_SECRET` are set. Analytics pages show an error until the database variables are set.
 
 ## Notes
 

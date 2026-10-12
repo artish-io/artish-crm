@@ -1,3 +1,8 @@
+/* Tailwind utilities for the analytics pages only (no preflight, so the CRM styles below are untouched). */
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
 :root {
   --bg: #f6f7f9;
   --card: #fff;

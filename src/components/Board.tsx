@@ -86,10 +86,11 @@ export default function Board() {
             MQL ({count('mql')})
           </button>
         </div>
+        <a href="/analytics">Analytics</a>
         <span className="spacer" />
         <span className="muted">{lastSyncAt ? `Synced ${rel(lastSyncAt)}` : 'Never synced'}</span>
         <button onClick={sync} disabled={syncing}>
-          {syncing ? 'Syncing…' : 'Sync from app'}
+          {syncing ? 'Syncing…' : 'Sync from database'}
         </button>
         <button className="primary" onClick={() => setAdding(true)}>
           Add contact
@@ -172,7 +173,7 @@ export default function Board() {
               {visible.length === 0 && (
                 <tr>
                   <td colSpan={5} className="muted">
-                    No contacts. Try “Sync from app”.
+                    No contacts. Try “Sync from database”.
                   </td>
                 </tr>
               )}

@@ -1,9 +1,11 @@
 import { randomUUID } from 'crypto';
+import { getConversionMetrics } from './analytics/conversion-metrics';
+import { getUserActivity } from './analytics/user-activity';
 import type { Contact, Data, ProductInfo } from './types';
 
 /**
- * Pulls signups and per-user product activity from the main Artish app's admin
- * API (same password gate as its admin dashboard) and merges them into contacts
+ * Reads signups and per-user product activity straight from the main Artish
+ * database (read-only) and merges them into contacts
  * by lowercased email. Never overwrites hand-managed SQL stages, notes or files.
  */
 
@@ -25,31 +27,9 @@ interface MainLead {
   firstSeenAt: string;
 }
 
-async function mainApi<T>(token: string, base: string, p: string): Promise<T> {
-  const res = await fetch(`${base}${p}`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
-  if (!res.ok) throw new Error(`Main app ${p} failed (${res.status})`);
-  return res.json();
-}
-
 export async function fetchMainAppData(): Promise<{ users: MainUser[]; leads: MainLead[] }> {
-  const base = process.env.MAIN_APP_URL?.replace(/\/+$/, '');
-  const password = process.env.MAIN_APP_ADMIN_PASSWORD;
-  if (!base || !password) throw new Error('MAIN_APP_URL and MAIN_APP_ADMIN_PASSWORD must be set to sync');
-
-  const auth = await fetch(`${base}/api/admin/auth/password`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password }),
-    cache: 'no-store',
-  });
-  if (!auth.ok) throw new Error(`Main app login failed (${auth.status}); check MAIN_APP_ADMIN_PASSWORD`);
-  const { token } = (await auth.json()) as { token: string };
-
-  const [users, analytics] = await Promise.all([
-    mainApi<{ users: MainUser[] }>(token, base, '/api/admin/analytics/users'),
-    mainApi<{ leads: { pending: MainLead[] } }>(token, base, '/api/admin/analytics?days=365'),
-  ]);
-  return { users: users.users, leads: analytics.leads?.pending ?? [] };
+  const [activity, metrics] = await Promise.all([getUserActivity(), getConversionMetrics(365)]);
+  return { users: activity.users, leads: metrics.leads.pending };
 }
 
 const key = (email: string) => email.trim().toLowerCase();
