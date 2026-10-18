@@ -201,6 +201,30 @@ export interface RetentionRow {
 
 export type SignupStage = 'active' | 'onboarded' | 'account_only';
 
+/** Where an ad-driven visitor came from (first touch, from signup_leads.attribution). */
+export interface AdSource {
+  campaign: string | null;
+  source: string | null;
+  medium: string | null;
+  /** utm_content: the ad name */
+  content: string | null;
+  /** utm_term: the ad set id */
+  term: string | null;
+  landingUrl: string | null;
+  hasClickId: boolean;
+}
+
+function adSourceFrom(raw: unknown): AdSource | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const a = raw as Record<string, unknown>;
+  const str = (k: string) => (typeof a[k] === 'string' && a[k] ? (a[k] as string) : null);
+  const out: AdSource = {
+    campaign: str('utm_campaign'), source: str('utm_source'), medium: str('utm_medium'),
+    content: str('utm_content'), term: str('utm_term'), landingUrl: str('landingUrl'), hasClickId: !!str('fbclid'),
+  };
+  return out.campaign || out.source || out.medium || out.hasClickId ? out : null;
+}
+
 export interface RecentSignup {
   id: number;
   email: string;
@@ -212,6 +236,8 @@ export interface RecentSignup {
   paymentAdded: boolean;
   lastActivityAt: string | null;
   stage: SignupStage;
+  /** null = no ad attribution captured (organic or tracking not enabled yet) */
+  ad: AdSource | null;
 }
 
 export interface Lead {
@@ -220,6 +246,7 @@ export interface Lead {
   firstSeenAt: string;
   lastSeenAt: string;
   signInCount: number;
+  ad: AdSource | null;
 }
 
 export interface LeadMetrics {
@@ -277,7 +304,7 @@ function toRetentionRow(r: Record<string, any>): RetentionRow {
   return { label: String(r.label), size: Number(r.size), weeks };
 }
 
-async function getLeadMetrics(days: number, hasLeads: boolean): Promise<LeadMetrics> {
+async function getLeadMetrics(days: number, hasLeads: boolean, hasAttr: boolean): Promise<LeadMetrics> {
   if (!hasLeads) return { tracking: false, started: 0, converted: 0, conversionPct: 0, pending: [] };
   const patterns = (process.env.ANALYTICS_EXCLUDED_EMAIL_PATTERNS || '').split(',').map((p) => p.trim()).filter(Boolean);
   const exclude = patterns.length
@@ -288,7 +315,7 @@ async function getLeadMetrics(days: number, hasLeads: boolean): Promise<LeadMetr
 
   const [countRes, pendingRes] = await Promise.all([
     db.execute(sql`SELECT count(*)::int AS started, count(*) FILTER (WHERE NOT ${noAccount})::int AS converted ${base}`),
-    db.execute(sql`SELECT l.email, l.name, l.first_seen_at, l.last_seen_at, l.sign_in_count ${base} AND ${noAccount}
+    db.execute(sql`SELECT l.email, l.name, l.first_seen_at, l.last_seen_at, l.sign_in_count, ${hasAttr ? sql`l.attribution` : sql`NULL::jsonb AS attribution`} ${base} AND ${noAccount}
                    ORDER BY l.first_seen_at DESC LIMIT 100`),
   ]);
   const c = countRes.rows[0] as any;
@@ -305,6 +332,7 @@ async function getLeadMetrics(days: number, hasLeads: boolean): Promise<LeadMetr
       firstSeenAt: new Date(r.first_seen_at).toISOString(),
       lastSeenAt: new Date(r.last_seen_at).toISOString(),
       signInCount: Number(r.sign_in_count),
+      ad: adSourceFrom(r.attribution),
     })),
   };
 }
@@ -322,9 +350,12 @@ export async function getConversionMetrics(days: number): Promise<ConversionMetr
   // The tracking tables come from migration 0020; degrade gracefully until it is applied.
   const exists = await db.execute(sql`
     SELECT to_regclass('public.user_login_events') IS NOT NULL AS logins,
-           to_regclass('public.signup_leads') IS NOT NULL AS leads`);
+           to_regclass('public.signup_leads') IS NOT NULL AS leads,
+           EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_schema = 'public' AND table_name = 'signup_leads' AND column_name = 'attribution') AS attr`);
   const hasLogins = !!(exists.rows[0] as any)?.logins;
   const hasLeads = !!(exists.rows[0] as any)?.leads;
+  const hasAttr = hasLeads && !!(exists.rows[0] as any)?.attr;
 
   const [summaryRes, funnelRes, dailyRes, weekRes, typeRes, recentRes] = await Promise.all([
     db.execute(sql`
@@ -366,11 +397,12 @@ export async function getConversionMetrics(days: number): Promise<ConversionMetr
              EXISTS (SELECT 1 FROM first_events fe WHERE fe.user_id = c.id AND fe.kind = 'tool_connected') AS tool_connected,
              EXISTS (SELECT 1 FROM first_events fe WHERE fe.user_id = c.id AND fe.kind = 'invite_sent') AS team_invited,
              EXISTS (SELECT 1 FROM first_events fe WHERE fe.user_id = c.id AND fe.kind = 'payment_added') AS payment_added,
-             (SELECT max(a.at) FROM activity a WHERE a.user_id = c.id) AS last_activity_at
+             (SELECT max(a.at) FROM activity a WHERE a.user_id = c.id) AS last_activity_at,
+             ${hasAttr ? sql`(SELECT l.attribution FROM signup_leads l WHERE l.email = lower(c.email))` : sql`NULL::jsonb`} AS attribution
       FROM cohort c ORDER BY c.created_at DESC LIMIT 100`),
   ]);
 
-  const leads = await getLeadMetrics(days, hasLeads);
+  const leads = await getLeadMetrics(days, hasLeads, hasAttr);
 
   const signupsByType = new Map<string, { signups: number; activated: number }>();
   for (const r of summaryRes.rows as any[]) {
@@ -415,6 +447,7 @@ export async function getConversionMetrics(days: number): Promise<ConversionMetr
       paymentAdded: !!r.payment_added,
       lastActivityAt,
       stage: lastActivityAt ? 'active' : onboarded ? 'onboarded' : 'account_only',
+      ad: adSourceFrom(r.attribution),
     };
   });
 

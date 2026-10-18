@@ -17,6 +17,7 @@ import ThemeToggle from '@/components/ThemeToggle';
 import { LogOut } from 'lucide-react';
 import { useLogout } from '@/components/useLogout';
 import type {
+  AdSource,
   ConversionMetrics,
   LeadMetrics,
   RecentSignup,
@@ -178,6 +179,27 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
+/** Campaign name first (what you look for in Ads Manager), then source/medium and the ad name underneath. */
+function AdCell({ ad }: { ad: AdSource | null }) {
+  if (!ad) return <span className="text-gray-300">—</span>;
+  const channel = [ad.source, ad.medium].filter(Boolean).join(' / ');
+  const tip = [
+    ad.campaign && `Campaign: ${ad.campaign}`,
+    ad.content && `Ad: ${ad.content}`,
+    ad.term && `Ad set ID: ${ad.term}`,
+    ad.landingUrl && `Landing: ${ad.landingUrl}`,
+    ad.hasClickId && 'Has a Meta click ID',
+  ].filter(Boolean).join('\n');
+  return (
+    <div title={tip} className="max-w-[16rem]">
+      <div className="truncate font-medium text-gray-900">{ad.campaign ?? channel ?? 'Ad click'}</div>
+      <div className="truncate text-xs text-gray-500">
+        {[ad.campaign ? channel : null, ad.content].filter(Boolean).join(' · ') || (ad.hasClickId ? 'Meta click' : '')}
+      </div>
+    </div>
+  );
+}
+
 function Check({ on }: { on: boolean }) {
   return on ? <span className="text-green-600">✓</span> : <span className="text-gray-300">—</span>;
 }
@@ -211,6 +233,7 @@ function RecentSignups({ rows }: { rows: RecentSignup[] }) {
               <th className="py-2 pr-4">Email</th>
               <th className="py-2 pr-4">Type</th>
               <th className="py-2 pr-4">Signed up</th>
+              <th className="py-2 pr-4">Campaign</th>
               <th className="py-2 px-2 text-center">Tool</th>
               <th className="py-2 px-2 text-center">Team</th>
               <th className="py-2 px-2 text-center">Payment</th>
@@ -227,6 +250,7 @@ function RecentSignups({ rows }: { rows: RecentSignup[] }) {
                 </td>
                 <td className="py-2 pr-4">{TYPE_LABEL[r.type]}</td>
                 <td className="py-2 pr-4 whitespace-nowrap">{formatDate(r.signedUpAt)}</td>
+                <td className="py-2 pr-4"><AdCell ad={r.ad} /></td>
                 <td className="py-2 px-2 text-center"><Check on={r.toolConnected} /></td>
                 <td className="py-2 px-2 text-center"><Check on={r.teamInvited} /></td>
                 <td className="py-2 px-2 text-center"><Check on={r.paymentAdded} /></td>
@@ -238,7 +262,7 @@ function RecentSignups({ rows }: { rows: RecentSignup[] }) {
             ))}
             {shown.length === 0 && (
               <tr>
-                <td colSpan={8} className="py-4 text-gray-500">No signups match.</td>
+                <td colSpan={9} className="py-4 text-gray-500">No signups match.</td>
               </tr>
             )}
           </tbody>
@@ -271,6 +295,7 @@ function PendingLeads({ leads }: { leads: LeadMetrics }) {
                 <th className="py-2 pr-4">Email</th>
                 <th className="py-2 pr-4">First seen</th>
                 <th className="py-2 pr-4">Last seen</th>
+                <th className="py-2 pr-4">Campaign</th>
                 <th className="py-2">Sign-ins</th>
               </tr>
             </thead>
@@ -283,12 +308,13 @@ function PendingLeads({ leads }: { leads: LeadMetrics }) {
                   </td>
                   <td className="py-2 pr-4 whitespace-nowrap">{formatDate(l.firstSeenAt)}</td>
                   <td className="py-2 pr-4 whitespace-nowrap">{formatDate(l.lastSeenAt)}</td>
+                  <td className="py-2 pr-4"><AdCell ad={l.ad} /></td>
                   <td className="py-2">{l.signInCount}</td>
                 </tr>
               ))}
               {leads.pending.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="py-4 text-gray-500">No pending Google sign-ins in this range.</td>
+                  <td colSpan={5} className="py-4 text-gray-500">No pending Google sign-ins in this range.</td>
                 </tr>
               )}
             </tbody>
